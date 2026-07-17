@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##fileDate=20260713
+##source=synthetic_manual_curation_ClinVar
+##reference=GRCh38
+##contig=<ID=chr2,length=242193529>
+##contig=<ID=chr6,length=170805979>
+##contig=<ID=chr10,length=133797422>
+##contig=<ID=chr14,length=107043718>
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene symbol">
+##INFO=<ID=DISEASE,Number=1,Type=String,Description="Associated disease">
+##INFO=<ID=HGVSC,Number=1,Type=String,Description="HGVS coding DNA notation">
+##INFO=<ID=HGVSP,Number=1,Type=String,Description="HGVS protein notation">
+##INFO=<ID=CLNSIG,Number=1,Type=String,Description="ClinVar clinical significance">
+##INFO=<ID=RS,Number=1,Type=String,Description="dbSNP rsID">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr2	157774114	rs121912678	C	T	100	PASS	GENE=ACVR1;DISEASE=Fibrodysplasia_ossificans_progressiva;HGVSC=c.617G>A;HGVSP=p.Arg206His;CLNSIG=Pathogenic;RS=rs121912678	GT	0/1
+chr6	26092913	rs1800562	G	A	100	PASS	GENE=HFE;DISEASE=Hereditary_hemochromatosis;HGVSC=c.845G>A;HGVSP=p.Cys282Tyr;CLNSIG=Pathogenic;RS=rs1800562	GT	1/1
+chr10	121520163	rs79184941	G	C	100	PASS	GENE=FGFR2;DISEASE=Apert_syndrome;HGVSC=c.755C>G;HGVSP=p.Ser252Trp;CLNSIG=Pathogenic;RS=rs79184941	GT	0/1
+chr14	94378610	rs28929474	C	T	100	PASS	GENE=SERPINA1;DISEASE=Alpha-1_antitrypsin_deficiency;HGVSC=c.1096G>A;HGVSP=p.Glu366Lys;CLNSIG=Pathogenic;RS=rs28929474	GT	1/1
