@@ -50,6 +50,7 @@ real, live data.
 ├── data/
 │   └── example_input.vcf                     # 4 example rare-disease variants (GRCh38)
 └── README.md
+
 ```
 Tool installs go to `tools/`, reference data to `refs/`, downloaded/prepared
 databases to `databases/`, and pipeline output to `results/` (all created
