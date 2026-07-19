@@ -1,4 +1,4 @@
-# Rare Disease VCF Annotation Pipeline
+# Rare and Genetic Diseases VCF Annotation Pipeline
 
 A fully automated, reproducible bash pipeline that annotates small-variant
 (SNV/indel) VCF files for rare/genetic-disorder interpretation, combining
