@@ -182,7 +182,3 @@ The MyVariant.info and wINTERVAR services are free public tools operated
 by third parties; heavy/bulk use should respect their fair-use policies.
 
 ---
-
-## License
-
-MIT License — see [LICENSE](LICENSE).
