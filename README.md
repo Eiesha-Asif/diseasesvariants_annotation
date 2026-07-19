@@ -36,25 +36,22 @@ real, live data.
 
 ```
 .
-├── rare_disease_vcf_annotation_pipeline.sh   # main annotation pipeline
-├── run_full_pipeline.sh                      # one-command quickstart wrapper
+├── rare_disease_vcf_annotation_pipeline.sh   # the one and only pipeline script
 ├── config/
 │   └── annotation_resources.env.example      # config template (copy -> .env)
 ├── scripts/
 │   ├── setup_tools.sh                        # installs all required software
-│   ├── setup_databases.sh                    # downloads reference/ClinVar/ClinGen
-│   ├── fetch_gnomad_subset.sh                 # per-variant gnomAD lookup
-│   ├── fetch_dbnsfp_subset.sh                 # per-variant REVEL/AlphaMissense/CADD lookup
-│   ├── prepare_intervar_queries.sh            # prints wINTERVAR query values
-│   └── fetch_intervar_subset.sh               # merges wINTERVAR CSV results
+│   ├── setup_databases.sh                    # downloads reference genome, ClinVar, ClinGen
+│   └── build_example_databases.sh            # builds gnomAD/dbNSFP/wINTERVAR lookup files
+├── databases_source/                         # plain-text variant data (see Section 5)
+│   ├── gnomad_subset.tsv
+│   ├── dbnsfp_subset.tsv
+│   └── intervar_subset.tsv
 ├── data/
-│   └── example_input.vcf                      # 4 example rare-disease variants (GRCh38)
-├── docs/
-│   └── Variant_Annotation_Report.docx          # full lab report (background, validation)
+│   └── example_input.vcf                     # 4 example rare-disease variants (GRCh38)
 └── README.md
 ```
-
-Tool installs go to `tools/`, reference data to `refs/`, downloaded/fetched
+Tool installs go to `tools/`, reference data to `refs/`, downloaded/prepared
 databases to `databases/`, and pipeline output to `results/` (all created
 automatically; not committed to git — see `.gitignore`).
 
@@ -64,58 +61,29 @@ automatically; not committed to git — see `.gitignore`).
 
 - Ubuntu / WSL Ubuntu (or any Debian-based Linux)
 - `sudo` access (for `apt-get install`)
-- Internet access (for tool installation and per-variant database queries)
-- ~10 GB free disk space (reference genome + VEP cache; no full gnomAD/dbNSFP needed)
+- Internet access (for one-time tool installation and reference downloads)
+- ~30 GB free disk space (mostly the VEP cache and reference genome)
 
 ---
 
-## 4. Quickstart (one command)
+## 4. Quickstart
 
 ```bash
 git clone <this-repo-url>
 cd <this-repo>
-bash run_full_pipeline.sh data/example_input.vcf
-```
 
-This will:
-1. Install every required tool (`scripts/setup_tools.sh`)
-2. Download the reference genome, ClinVar, and ClinGen databases (`scripts/setup_databases.sh`)
-3. Fetch gnomAD and REVEL/AlphaMissense/CADD data for the exact variants in your VCF
-4. Run the full 9-step annotation pipeline
-5. Write the final annotated VCF to `results/example_input/example_input.final.annotated.vcf.gz`
-
-The only step that cannot be fully automated is **Step 9 (ACMG/AMP
-classification)**, because wINTERVAR has no public API — see Section 6 below.
-If skipped, the pipeline still completes and produces a fully annotated VCF
-with steps 1–8.
-
----
-
-## 5. Manual / Step-by-Step Usage
-
-If you prefer to run each stage yourself (e.g. on your own VCF):
-
-```bash
-# 1. Install tools (once per machine)
+# One-time setup (installs tools + downloads reference genome/ClinVar/ClinGen)
 bash scripts/setup_tools.sh
 source ~/.bashrc
-
-# 2. Download reference databases (once per machine)
 bash scripts/setup_databases.sh
 
-# 3. Fetch per-variant gnomAD frequencies for YOUR input VCF
-bash scripts/fetch_gnomad_subset.sh data/example_input.vcf databases/gnomad/subset
+# Build the gnomAD / dbNSFP / ACMG lookup files for the example VCF
+bash scripts/build_example_databases.sh
 
-# 4. Fetch per-variant REVEL / AlphaMissense / CADD scores
-bash scripts/fetch_dbnsfp_subset.sh data/example_input.vcf databases/dbnsfp/subset
-
-# 5. (Optional) ACMG/AMP classification — see Section 6 below
-
-# 6. Prepare the config file
+# Prepare the config file (no edits needed for the example VCF)
 cp config/annotation_resources.env.example config/annotation_resources.env
-# (edit paths only if you changed the default folder layout)
 
-# 7. Activate the SpliceAI conda environment, then run the pipeline
+# Run the pipeline
 conda activate spliceai_env
 bash rare_disease_vcf_annotation_pipeline.sh \
   -i data/example_input.vcf \
@@ -124,31 +92,44 @@ bash rare_disease_vcf_annotation_pipeline.sh \
   -s example_input \
   -a GRCh38 \
   -t 4
-```
+
 
 ---
-
-## 6. ACMG/AMP Classification (Step 9) — Manual Web Step
-
-[wINTERVAR](https://wintervar.wglab.org) does not provide a public API, so
-this one step is semi-automated:
-
+5. Annotating Your Own VCF
+Steps 1–4, 6, and 7 work on any VCF automatically. Steps 5, 8, and 9 use
+small pre-built lookup files (databases_source/*.tsv) rather than
+downloading full genome-wide databases (gnomAD and dbNSFP are 10s–100s of
+GB). To annotate different variants, add one row per variant to the
+relevant .tsv file, using the same method used to build the example data:
+gnomAD (Step 5) — query the variant's exact position directly against
+the remote, tabix-indexed gnomAD VCF (no download):
 ```bash
-# Print the Chr / Position / Ref / Alt values to submit
-bash scripts/prepare_intervar_queries.sh data/example_input.vcf
-```
-
-For each variant printed, go to <https://wintervar.wglab.org>, select
-**GRCh38**, use **"Query by genomic coordinate"**, submit the values, and
-download the result as CSV. Save all CSV files into one folder, then run:
-
-```bash
-bash scripts/fetch_intervar_subset.sh <csv_folder> databases/intervar/subset
-```
-
-Re-run the main pipeline afterwards to include `INTERVAR_ACMG` in the output.
-
+tabix -h \
+  https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1/vcf/genomes/gnomad.genomes.v4.1.sites.chr<CHR>.vcf.bgz \
+  chr<CHR>:<POS>-<POS>
 ---
+
+Extract AC, AN, AF from the matching line's INFO field and append a
+row to databases_source/gnomad_subset.tsv
+(chrom  start0  end  AC  AN  AF, where start0 = POS-1).
+dbNSFP / REVEL / AlphaMissense / CADD (Step 8) — query MyVariant.info:
+```bash
+curl -s "https://myvariant.info/v1/variant/chr<CHR>:g.<POS><REF>>%3E<ALT>?assembly=hg38&fields=dbnsfp.revel,dbnsfp.alphamissense,dbnsfp.cadd"
+---
+
+Append a row to databases_source/dbnsfp_subset.tsv
+(chrom  start0  end  REVEL_score  AlphaMissense_max_score  AlphaMissense_pred  CADD_phred).
+ACMG/AMP classification (Step 9) — wINTERVAR has no public API, so this
+step is manual: go to https://wintervar.wglab.org, select GRCh38, use
+"Query by genomic coordinate", submit Chr/Position/Ref/Alt, and read the
+classification from the result. Append a row to
+databases_source/intervar_subset.tsv
+(chrom  start0  end  gene  ACMG_classification).
+After editing any .tsv file, rebuild the indexed lookup files:
+```bash
+bash scripts/build_example_databases.sh
+---
+
 
 ## 7. Output
 
@@ -172,31 +153,32 @@ Each variant record's `INFO` field contains, cumulatively:
 | `INTERVAR_GENE`, `INTERVAR_ACMG` | wINTERVAR |
 
 A plain-text summary table is also written to
+```bash
 `results/<sample>/reports/<sample>.annotation_summary.txt`.
 
 ---
 
 ## 8. Validation
 
-This pipeline was validated by running it twice on the same four example
-variants — once manually, one tool at a time, and once through this
-automated script — and confirming every annotated field matched exactly
-between the two runs. Full validation details, disease background, and a
-comparison against illustrative/mock annotation values are documented in
-[`docs/Variant_Annotation_Report.docx`](docs/Variant_Annotation_Report.docx).
+This pipeline was validated by running the full annotation process twice on
+the same four example variants — once manually, one tool at a time, and
+once through this consolidated script — and confirming every annotated
+field matched exactly between the two runs. Full validation details,
+disease background, and a comparison against illustrative/mock annotation
+values are documented
 
 ---
 
 ## 9. Notes & Limitations
 
-- CNV/structural-variant annotation (AnnotSV, ClassifyCNV, ISV-CNV) is out of
-  scope for this pipeline, since all four example diseases are caused by
-  single-nucleotide point mutations, not copy-number changes.
-- This pipeline is for **research/educational use only** and is not a
-  clinical diagnostic tool. ACMG/AMP classifications should always be
-  reviewed by a qualified clinical geneticist.
-- The MyVariant.info and wINTERVAR services are free public tools operated
-  by third parties; heavy/bulk use should respect their fair-use policies.
+CNV/structural-variant annotation (AnnotSV, ClassifyCNV, ISV-CNV) is out of
+scope for this pipeline, since all four example diseases are caused by
+single-nucleotide point mutations, not copy-number changes.
+This pipeline is for research/educational use only and is not a
+clinical diagnostic tool. ACMG/AMP classifications should always be
+reviewed by a qualified clinical geneticist.
+The MyVariant.info and wINTERVAR services are free public tools operated
+by third parties; heavy/bulk use should respect their fair-use policies.
 
 ---
 
