@@ -1,0 +1,8 @@
+# ACMG/AMP classification for the 4 example variants.
+# Retrieved from the wINTERVAR web tool (https://wintervar.wglab.org) --
+# see README.md Section 5 for the manual query steps.
+# Columns: chrom  start0  end  gene  ACMG_classification
+chr2	157774113	157774114	ACVR1	Likely_pathogenic
+chr6	26092912	26092913	HFE	Uncertain_significance
+chr10	121520162	121520163	FGFR2	Likely_pathogenic
+chr14	94378609	94378610	SERPINA1	Likely_pathogenic
