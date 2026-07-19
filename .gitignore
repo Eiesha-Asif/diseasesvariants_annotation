@@ -1,0 +1,18 @@
+# Downloaded/installed tools (recreated by scripts/setup_tools.sh)
+tools/
+
+# Reference genome + VEP cache (recreated by scripts/setup_databases.sh)
+refs/
+
+# Downloaded/prepared databases (recreated by scripts/setup_databases.sh and build_example_databases.sh)
+databases/
+
+# Pipeline outputs
+results/
+
+# Config file with local machine paths (keep only the .example template in git)
+config/annotation_resources.env
+
+# Misc
+*.log
+.DS_Store
