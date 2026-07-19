@@ -94,9 +94,10 @@ bash rare_disease_vcf_annotation_pipeline.sh \
   -a GRCh38 \
   -t 4
 
-
 ---
-5. Annotating Your Own VCF
+```
+## 5.Annotating Your Own VCF
+
 Steps 1–4, 6, and 7 work on any VCF automatically. Steps 5, 8, and 9 use
 small pre-built lookup files (databases_source/*.tsv) rather than
 downloading full genome-wide databases (gnomAD and dbNSFP are 10s–100s of
@@ -108,6 +109,7 @@ the remote, tabix-indexed gnomAD VCF (no download):
 tabix -h \
   https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1/vcf/genomes/gnomad.genomes.v4.1.sites.chr<CHR>.vcf.bgz \
   chr<CHR>:<POS>-<POS>
+```
 ---
 
 Extract AC, AN, AF from the matching line's INFO field and append a
@@ -117,7 +119,7 @@ dbNSFP / REVEL / AlphaMissense / CADD (Step 8) — query MyVariant.info:
 ```bash
 curl -s "https://myvariant.info/v1/variant/chr<CHR>:g.<POS><REF>>%3E<ALT>?assembly=hg38&fields=dbnsfp.revel,dbnsfp.alphamissense,dbnsfp.cadd"
 ---
-
+```
 Append a row to databases_source/dbnsfp_subset.tsv
 (chrom  start0  end  REVEL_score  AlphaMissense_max_score  AlphaMissense_pred  CADD_phred).
 ACMG/AMP classification (Step 9) — wINTERVAR has no public API, so this
@@ -129,8 +131,7 @@ databases_source/intervar_subset.tsv
 After editing any .tsv file, rebuild the indexed lookup files:
 ```bash
 bash scripts/build_example_databases.sh
----
-
+```
 
 ## 7. Output
 
@@ -156,8 +157,7 @@ Each variant record's `INFO` field contains, cumulatively:
 A plain-text summary table is also written to
 ```bash
 `results/<sample>/reports/<sample>.annotation_summary.txt`.
-
----
+```
 
 ## 8. Validation
 
