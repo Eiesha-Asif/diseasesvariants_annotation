@@ -1,4 +1,51 @@
-# Rare and Genetic Diseases VCF Annotation Pipeline
+# Rare and Genetic Diseases VCF Annotation Pipeline 
+
+A fully automated, reproducible Bash pipeline that annotates human Whole Genome Sequencing (WGS) or Whole Exome Sequencing (WES) small-variant (SNV/indel) VCF files for rare and genetic-disorder interpretation. It integrates **9 independent annotation layers** into a single, comprehensive VCF.
+
+The pipeline is validated using 4 monogenic rare disease variants:
+- **Apert Syndrome** (*FGFR2*)
+- **Fibrodysplasia Ossificans Progressiva** (*ACVR1*)
+- **Hereditary Hemochromatosis** (*HFE*)
+- **Alpha-1 Antitrypsin Deficiency** (*SERPINA1*)
+
+---
+
+## 1. What This Pipeline Does
+
+| Step | Tool / Source | Added Annotations / Info Fields |
+| :--- | :--- | :--- |
+| **1. Normalization** | `bcftools norm` | Normalizes VCF, splits multi-allelic records, left-aligns indels |
+| **2. Functional Annotation** | Ensembl VEP (offline GRCh38/GRCh37) | Gene symbol, HGVS (c./p.), transcript, consequence, biotype, plugins |
+| **3. Cross-Check Consequence** | SnpEff (`ann`) | Independent consequence and transcript cross-check (`ANN` field) |
+| **4. Clinical Significance** | NCBI ClinVar | `CLNSIG`, `CLNREVSTAT`, `CLNDN`, `CLNDISDB`, `CLNHGVS`, `CLNVC` |
+| **5. Population Frequencies** | gnomAD v4.1 | Population allele metrics: `GNOMAD_AF`, `GNOMAD_AC`, `GNOMAD_AN` |
+| **6. Dosage Sensitivity** | ClinGen Curation List | Region/gene dosage scores: `CLINGEN_REGION`, `CLINGEN_HAPLO`, `CLINGEN_TRIPLO` |
+| **7. Splice Effect Prediction**| SpliceAI | Splice altering delta scores (acceptor/donor gain/loss) |
+| **8. Missense Pathogenicity** | dbNSFP (MyVariant.info subset) | `REVEL_SCORE`, `ALPHAMISSENSE_SCORE`, `ALPHAMISSENSE_PRED`, `CADD_PHRED_DBNSFP` |
+| **9. ACMG/AMP Classification**| wINTERVAR Subset | `INTERVAR_GENE`, `INTERVAR_ACMG` classification |
+
+> **Design Principle:** Genome-wide multi-gigabyte databases (full gnomAD or dbNSFP) do not need to be downloaded entirely. Steps 5, 8, and 9 use tabix-indexed local subsets or API-queried lookups for target variants, keeping execution fast, reproducible, and lightweight.
+
+---
+
+## 2. Repository Structure
+
+```text
+.
+├── rare_disease_vcf_annotation_pipeline.sh   # Primary pipeline workflow script
+├── annotation_resources.env                  # Pipeline configuration file
+├── scripts/
+│   ├── setup_tools.sh                        # Tool installation script
+│   ├── setup_databases.sh                    # Reference genome & ClinVar/ClinGen setup
+│   └── build_example_databases.sh            # Builds indexed lookup subsets (gnomAD/dbNSFP/InterVar)
+├── databases_source/                         # Plain-text target variant mappings
+│   ├── gnomad_subset.tsv
+│   ├── dbnsfp_subset.tsv
+│   └── intervar_subset.tsv
+├── data/
+│   └── example_input.vcf                     # Example VCF containing 4 rare disease variants
+└── README.md# Rare and Genetic Diseases VCF Annotation Pipeline
+```
 
 A fully automated, reproducible bash pipeline that annotates small-variant
 (SNV/indel) VCF files for rare/genetic-disorder interpretation, combining
@@ -10,60 +57,14 @@ Developed and validated on four rare monogenic disease variants:
 
 ---
 
-## 1. What This Pipeline Does
-
-| # | Step | Tool / Source | Adds |
-|---|------|----------------|------|
-| 1 | Normalization | `bcftools norm` | split multi-allelic records, left-align indels |
-| 2 | Functional annotation | Ensembl VEP (offline, GRCh38 cache) | gene, transcript, consequence, HGVS c./p. |
-| 3 | Cross-check annotation | SnpEff | independent consequence/HGVS call |
-| 4 | Clinical significance | NCBI ClinVar (GRCh38 VCF) | `CLNSIG`, `CLNREVSTAT`, `CLNDN`, etc. |
-| 5 | Population frequency | gnomAD v4.1 (remote, per-variant query) | `GNOMAD_AC/AN/AF` |
-| 6 | Gene dosage sensitivity | ClinGen gene curation list | `CLINGEN_HAPLO`, `CLINGEN_TRIPLO` |
-| 7 | Splice-effect prediction | SpliceAI | delta scores (acceptor/donor gain/loss) |
-| 8 | Missense pathogenicity | REVEL / AlphaMissense / CADD (via [MyVariant.info](https://myvariant.info), dbNSFP) | `REVEL_SCORE`, `ALPHAMISSENSE_SCORE/PRED`, `CADD_PHRED_DBNSFP` |
-| 9 | ACMG/AMP classification | [wINTERVAR](https://wintervar.wglab.org) | `INTERVAR_ACMG` |
-
-**Design principle:** genome-wide multi-gigabyte databases (full gnomAD, full
-dbNSFP) are **never downloaded in full**. Instead, steps 5 and 8 query the
-public, tabix-indexed / REST sources **only for the exact variants present in
-your input VCF**, keeping the pipeline fast and lightweight while still using
-real, live data.
-
----
-
-## 2. Repository Structure
-
-```
-.
-├── rare_disease_vcf_annotation_pipeline.sh   # the one and only pipeline script
-├── config/
-│   └── annotation_resources.env.example      # config template (copy -> .env)
-├── scripts/
-│   ├── setup_tools.sh                        # installs all required software
-│   ├── setup_databases.sh                    # downloads reference genome, ClinVar, ClinGen
-│   └── build_example_databases.sh            # builds gnomAD/dbNSFP/wINTERVAR lookup files
-├── databases_source/                         # plain-text variant data (see Section 5)
-│   ├── gnomad_subset.tsv
-│   ├── dbnsfp_subset.tsv
-│   └── intervar_subset.tsv
-├── data/
-│   └── example_input.vcf                     # 4 example rare-disease variants (GRCh38)
-└── README.md
-
-```
-Tool installs go to `tools/`, reference data to `refs/`, downloaded/prepared
-databases to `databases/`, and pipeline output to `results/` (all created
-automatically; not committed to git — see `.gitignore`).
-
----
-
 ## 3. Requirements
+OS: Linux (Ubuntu / WSL Ubuntu 20.04 or later recommended)
 
-- Ubuntu / WSL Ubuntu (or any Debian-based Linux)
-- `sudo` access (for `apt-get install`)
-- Internet access (for one-time tool installation and reference downloads)
-- ~30 GB free disk space (mostly the VEP cache and reference genome)
+Privileges: sudo access (for dependencies & APT packages)
+
+Disk Space: ~30–40 GB free space (VEP cache, assembly FASTA, and index files)
+
+Core Dependencies: bcftools (≥1.12), bgzip, tabix, awk, sed, sort, java (≥11), python3, vep, spliceai
 
 ---
 
@@ -103,7 +104,8 @@ small pre-built lookup files (databases_source/*.tsv) rather than
 downloading full genome-wide databases (gnomAD and dbNSFP are 10s–100s of
 GB). To annotate different variants, add one row per variant to the
 relevant .tsv file, using the same method used to build the example data:
-gnomAD (Step 5) — query the variant's exact position directly against
+gnomAD
+(Step 5) — query the variant's exact position directly against
 the remote, tabix-indexed gnomAD VCF (no download):
 ```bash
 tabix -h \
@@ -115,6 +117,7 @@ tabix -h \
 Extract AC, AN, AF from the matching line's INFO field and append a
 row to databases_source/gnomad_subset.tsv
 (chrom  start0  end  AC  AN  AF, where start0 = POS-1).
+---
 dbNSFP / REVEL / AlphaMissense / CADD (Step 8) — query MyVariant.info:
 ```bash
 curl -s "https://myvariant.info/v1/variant/chr<CHR>:g.<POS><REF>>%3E<ALT>?assembly=hg38&fields=dbnsfp.revel,dbnsfp.alphamissense,dbnsfp.cadd"
@@ -122,6 +125,7 @@ curl -s "https://myvariant.info/v1/variant/chr<CHR>:g.<POS><REF>>%3E<ALT>?assemb
 ```
 Append a row to databases_source/dbnsfp_subset.tsv
 (chrom  start0  end  REVEL_score  AlphaMissense_max_score  AlphaMissense_pred  CADD_phred).
+---
 ACMG/AMP classification (Step 9) — wINTERVAR has no public API, so this
 step is manual: go to https://wintervar.wglab.org, select GRCh38, use
 "Query by genomic coordinate", submit Chr/Position/Ref/Alt, and read the
