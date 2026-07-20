@@ -1,39 +1,37 @@
 #!/usr/bin/env bash
-###############################################################################
-# build_example_databases.sh
-#
-# Converts the plain-text variant data in databases_source/ (already
-# retrieved from gnomAD, MyVariant.info, and wINTERVAR for the 4 example
-# variants) into bgzip-compressed, tabix-indexed BED files that the main
-# pipeline script can use directly -- no internet access needed to run the
-# pipeline on the example VCF.
-#
-# If you annotate a DIFFERENT VCF, you must repeat the manual data-retrieval
-# steps described in README.md Section 5 to add rows to the TSV files in
-# databases_source/ (or create new ones) before re-running this script.
-#
-# Usage:
-#   bash scripts/build_example_databases.sh
-###############################################################################
+# scripts/build_example_databases.sh
+# Purpose: Download and index reference databases for GRCh38 rare disease annotation pipeline.
 set -Eeuo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="${PROJECT_ROOT}/databases_source"
-OUT="${PROJECT_ROOT}/databases"
-mkdir -p "$OUT/gnomad" "$OUT/dbnsfp" "$OUT/intervar"
+DB_DIR="${1:-./databases}"
+REF_DIR="${2:-./refs}"
 
-log() { printf '\n\033[1;34m[build_example_databases]\033[0m %s\n' "$*"; }
+mkdir -p "$DB_DIR" "$REF_DIR"
 
-build() {
-  local src="$1" out_prefix="$2" label="$3"
-  log "Building $label -> ${out_prefix}.bed.gz"
-  grep -v '^#' "$src" | sort -k1,1 -k2,2n > "${out_prefix}.bed"
-  bgzip -f "${out_prefix}.bed"
-  tabix -p bed "${out_prefix}.bed.gz"
-}
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 
-build "$SRC/gnomad_subset.tsv"   "$OUT/gnomad/subset"   "gnomAD"
-build "$SRC/dbnsfp_subset.tsv"   "$OUT/dbnsfp/subset"   "dbNSFP (REVEL/AlphaMissense/CADD)"
-build "$SRC/intervar_subset.tsv" "$OUT/intervar/subset" "wINTERVAR ACMG classification"
+log "1. Preparing Reference FASTA Index..."
+if [[ -f "${REF_DIR}/Homo_sapiens.GRCh38.dna.primary_assembly.fa" ]]; then
+    samtools faidx "${REF_DIR}/Homo_sapiens.GRCh38.dna.primary_assembly.fa" || true
+fi
+
+log "2. Downloading & Indexing ClinVar..."
+mkdir -p "$DB_DIR/clinvar"
+cd "$DB_DIR/clinvar"
+if [[ ! -f "clinvar.chr.vcf.gz" ]]; then
+    wget -q https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz -O clinvar.chr.vcf.gz
+    bcftools index -t clinvar.chr.vcf.gz
+fi
+
+log "3. Sorting & Indexing BED Annotations (ClinGen, dbNSFP, InterVar)..."
+for bed_file in "$DB_DIR"/*/*.bed; do
+    if [[ -f "$bed_file" && ! -f "${bed_file}.gz" ]]; then
+        log "Indexing $bed_file..."
+        sort -k1,1 -k2,2n "$bed_file" | bgzip -c > "${bed_file}.gz"
+        tabix -p bed "${bed_file}.gz"
+    fi
+done
+
+log "Database preparation complete!"
 
 log "Done. Indexed files are in ${OUT}/{gnomad,dbnsfp,intervar}/subset.bed.gz"
