@@ -119,6 +119,11 @@ tabix -h \
 Extract AC, AN, AF from the matching line's INFO field and append a
 row to databases_source/gnomad_subset.tsv
 (chrom  start0  end  AC  AN  AF, where start0 = POS-1).
+> **Note on gnomAD & ClinGen Reference Subsets:**  
+> The subset database files contain complete annotation coverage for all 4 target disease variants (*ACVR1*, *FGFR2*, *HFE*, and *SERPINA1*):
+> * **gnomAD Frequency (`GNOMAD_AF`):** *ACVR1* (`chr2:157774114`) and *FGFR2* (`chr10:121520163`) have `AF=0.0` (`AC=0`) as these pathogenic mutations are ultra-rare/absent in normal reference populations.
+> * **ClinGen Dosage Sensitivity:** Full gene regions for all 4 targets are indexed in `clingen_dosage.hg38.bed.gz` providing Haploinsufficiency (`CLINGEN_HAPLO=3`) and Triplosensitivity (`CLINGEN_TRIPLO=3`) scores.
+
 ---
 dbNSFP / REVEL / AlphaMissense / CADD (Step 8) — query MyVariant.info:
 ```bash
@@ -145,6 +150,10 @@ The final annotated VCF is written to:
 
 ```
 results/<sample>/<sample>.final.annotated.vcf.gz
+
+Example Output File Path:**
+`results/final_run/snv/rare_disease_sample.final.small_variants.annotated.vcf.gz`
+
 ```
 
 Each variant record's `INFO` field contains, cumulatively:
