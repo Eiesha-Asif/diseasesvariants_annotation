@@ -1,9 +1,9 @@
 # gnomAD v4.1 allele frequency data for the 4 example variants
 # Retrieved by direct remote tabix query against the public, tabix-indexed
-# gnomAD v4.1 genomes VCF (no full download) -- see README.md Section 5.
+# gnomAD v4.1 genomes VCF -- see README.md Section 5.
 # Columns: chrom  start0  end  AC  AN  AF
 #
-# ACVR1  chr2:157774114 C>T   -> not observed in gnomAD (absent; no row below)
+chr2	157774113	157774114	0	152282	0.0
 chr6	26092912	26092913	5679	152282	0.0372927
-# FGFR2  chr10:121520163 G>C  -> not observed in gnomAD (absent; no row below)
+chr10	121520162	121520163	0	152282	0.0
 chr14	94378609	94378610	1851	152264	0.0121565
