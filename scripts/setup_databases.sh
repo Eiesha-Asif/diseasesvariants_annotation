@@ -76,11 +76,12 @@ CLINGEN_RAW_BED="${DB_DIR}/clingen/clingen_dosage.hg38.bed"
 CLINGEN_GZ="${DB_DIR}/clingen/clingen_dosage.hg38.bed.gz"
 
 log "[3/3] Generating ClinGen Dosage Sensitivity BED for target disease regions..."
+# Generate ClinGen Dosage Sensitivity BED
 cat << 'BED_DATA' > "$CLINGEN_RAW_BED"
-chr10	121478333	121626210	FGFR2	3	3
-chr2	157736382	157876330	ACVR1	3	3
-chr6	26087612	26095529	HFE	3	3
-chr14	94376747	94390692	SERPINA1	3	3
+chr2	157700000	157900000	ACVR1	3	3
+chr10	121400000	121600000	FGFR2	3	3
+chr6	260800000	261000000	HFE	3	3
+chr14	94300000	94400000	SERPINA1	3	3
 BED_DATA
 
 # Sort, compress with bgzip, and index with tabix
