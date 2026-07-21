@@ -43,7 +43,9 @@ The pipeline is validated using 4 monogenic rare disease variants:
 │   ├── dbnsfp_subset.tsv
 │   └── intervar_subset.tsv
 ├── data/
-│   └── example_input.vcf                     # Example VCF containing 4 rare disease variants
+│   └── unannotated_input.vcf                     # Example VCF containing 4 rare disease variants
+├── Variants Annotation Pipeline Report.pdf       # detailed interpretation process report(comparison between gpt annotated and pipeline annotated vcfs)
+├── Genosphere_Comparative_Variant_Report.pdf     # overall interpretation report
 └── README.md# Rare and Genetic Diseases VCF Annotation Pipeline
 ```
 
