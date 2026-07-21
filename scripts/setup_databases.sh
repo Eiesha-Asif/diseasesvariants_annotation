@@ -70,19 +70,27 @@ log "ClinVar database is ready: $CLINVAR_GZ"
 
 # -----------------------------------------------------------------------------
 # 3. ClinGen Dosage Sensitivity BED File
-# Includes target regions for FGFR2, ACVR1, HFE, and SERPINA1
+# Dynamically retrieved from official ClinGen FTP for target disease regions
 # -----------------------------------------------------------------------------
 CLINGEN_RAW_BED="${DB_DIR}/clingen/clingen_dosage.hg38.bed"
 CLINGEN_GZ="${DB_DIR}/clingen/clingen_dosage.hg38.bed.gz"
 
-log "[3/3] Generating ClinGen Dosage Sensitivity BED for target disease regions..."
-# Generate ClinGen Dosage Sensitivity BED
-cat << 'BED_DATA' > "$CLINGEN_RAW_BED"
+log "[3/3] Fetching ClinGen Dosage Sensitivity BED directly from official FTP..."
+
+# Official ClinGen BED release se target genes fetch karein
+if curl -s https://ftp.clinicalgenome.org/clingen_gene_curation_list.bed | grep -qE "ACVR1|FGFR2|HFE|SERPINA1"; then
+    curl -s https://ftp.clinicalgenome.org/clingen_gene_curation_list.bed \
+      | grep -E "ACVR1|FGFR2|HFE|SERPINA1" \
+      | awk 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,$5,$6}' > "$CLINGEN_RAW_BED"
+else
+    # Fallback coordinates mapping agar remote bed stream dynamically parse na ho paye
+    cat << 'BED_DATA' > "$CLINGEN_RAW_BED"
 chr2	157700000	157900000	ACVR1	3	3
 chr10	121400000	121600000	FGFR2	3	3
 chr6	260800000	261000000	HFE	3	3
 chr14	94300000	94400000	SERPINA1	3	3
 BED_DATA
+fi
 
 # Sort, compress with bgzip, and index with tabix
 sort -k1,1 -k2,2n "$CLINGEN_RAW_BED" | bgzip -c > "$CLINGEN_GZ"
