@@ -32,21 +32,26 @@ The pipeline is validated using 4 monogenic rare disease variants:
 
 ```text
 .
-├── rare_disease_vcf_annotation_pipeline.sh   # Primary pipeline workflow script
-├── annotation_resources.env                  # Pipeline configuration file
-├── scripts/
-│   ├── setup_tools.sh                        # Tool installation script
-│   ├── setup_databases.sh                    # Reference genome & ClinVar/ClinGen setup
-│   └── build_example_databases.sh            # Builds indexed lookup subsets (gnomAD/dbNSFP/InterVar)
-├── databases_source/                         # Plain-text target variant mappings
-│   ├── gnomad_subset.tsv
+├── .gitattributes
+├── .gitignore
+├── Genosphere_Comparative_Variant_Report.pdf
+├── README.md
+├── Variant Annotation Pipeline Report rare diseases.pdf
+├── four_disease_variants_AATD_Apert_HH_FOP_GRCh38.vcf
+├── rare_disease_sample.final.small_variants.annotated.vcf
+│
+├── config/
+│   └── annotation_resources.env.example
+│
+├── databases_source/
 │   ├── dbnsfp_subset.tsv
+│   ├── gnomad_subset.tsv
 │   └── intervar_subset.tsv
-├── data/
-│   └── unannotated_input.vcf                     # Example VCF containing 4 rare disease variants
-├── Variants Annotation Pipeline Report.pdf       # detailed interpretation process report(comparison between gpt annotated and pipeline annotated vcfs)
-├── Genosphere_Comparative_Variant_Report.pdf     # overall interpretation report
-└── README.md# Rare and Genetic Diseases VCF Annotation Pipeline
+│
+└── scripts/
+    ├── build_example_databases.sh
+    ├── setup_databases.sh
+    └── setup_tools.sh
 ```
 
 A fully automated, reproducible bash pipeline that annotates small-variant
@@ -87,13 +92,14 @@ bash scripts/build_example_databases.sh
 # Prepare the config file (no edits needed for the example VCF)
 cp config/annotation_resources.env.example config/annotation_resources.env
 
-# Run the pipeline
 conda activate spliceai_env
-bash rare_disease_vcf_annotation_pipeline.sh \
-  -i data/example_input.vcf \
-  -o results/example_input \
+   
+# Run the pipeline
+  bash rare_disease_vcf_annotation_pipeline.sh \
+  -i four_disease_variants_AATD_Apert_HH_FOP_GRCh38.vcf \
+  -o results/final_run \
   -c config/annotation_resources.env \
-  -s example_input \
+  -s rare_disease_sample \
   -a GRCh38 \
   -t 4
 
