@@ -16,7 +16,7 @@ for f in SERPINA1.csv FGFR2.csv HFE.csv ACVR1.csv; do
   }' "$f" >> ../intervar_combined.bed
 done
 
-# 3. BED file sorting, bgzip compress, and tabix indexing
+#BED file sorting, bgzip compress, and tabix indexing
 cd ~/rare_disease_project/databases/intervar
 sort -k1,1 -k2,2n intervar_combined.bed | bgzip -c > intervar_combined.bed.gz
 tabix -f -p bed intervar_combined.bed.gz
