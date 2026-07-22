@@ -1,3 +1,26 @@
+# commands for creating a combined BED file of variant csv files downloaded from intervar webpage.
+#  InterVar raw CSV files to combined BED file
+cd ~/rare_disease_project/databases/intervar/raw
+> ../intervar_combined.bed
+
+for f in SERPINA1.csv FGFR2.csv HFE.csv ACVR1.csv; do
+  awk -F'","' 'NR==2 {
+    chrom = $1;
+    gsub(/"/, "", chrom);
+    pos = $2;
+    gene = $5;
+    classification = $6;
+    gsub(/ *\(Details&Adjust\)/, "", classification);
+    gsub(/ /, "_", classification);
+    print "chr"chrom"\t"(pos-1)"\t"pos"\t"gene"\t"classification
+  }' "$f" >> ../intervar_combined.bed
+done
+
+# 3. BED file sorting, bgzip compress, and tabix indexing
+cd ~/rare_disease_project/databases/intervar
+sort -k1,1 -k2,2n intervar_combined.bed | bgzip -c > intervar_combined.bed.gz
+tabix -f -p bed intervar_combined.bed.gz
+
 # ACMG/AMP classification for the 4 example variants.
 # Retrieved from the wINTERVAR web tool (https://wintervar.wglab.org) --
 # see README.md Section 5 for the manual query steps.
