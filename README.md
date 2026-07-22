@@ -133,12 +133,13 @@ curl -s "https://myvariant.info/v1/variant/chr<CHR>:g.<POS><REF>>%3E<ALT>?assemb
 Append a row to databases_source/dbnsfp_subset.tsv
 (chrom  start0  end  REVEL_score  AlphaMissense_max_score  AlphaMissense_pred  CADD_phred).
 ---
-ACMG/AMP classification (Step 9) — wINTERVAR has no public API, so this
-step is manual: go to https://wintervar.wglab.org, select GRCh38, use
-"Query by genomic coordinate", submit Chr/Position/Ref/Alt, and read the
-classification from the result. Append a row to
-databases_source/intervar_subset.tsv
-(chrom  start0  end  gene  ACMG_classification).
+### ACMG/AMP Classification (Step 9)
+
+ACMG/AMP clinical classifications were gathered directly from **wInterVar** (GRCh38) for each target variant (*ACVR1*, *FGFR2*, *HFE*, and *SERPINA1*):
+
+1. **Source Export:** Individual variant classification CSVs were exported from [wInterVar](https://wintervar.wglab.org) and stored in `databases/intervar/raw/`.
+2. **Automated BED Generation:** The CSV files are parsed and compiled into `databases/intervar/intervar_combined.bed.gz` (containing genomic coordinates, target gene symbol, and ACMG clinical status like `Likely_pathogenic` or `Uncertain_significance`).
+3. **Indexing:** The combined BED file is sorted, compressed with `bgzip`, and indexed using `tabix -p bed` for high-performance retrieval during pipeline execution.(the commands are given in intervar_subset.tsv file)
 After editing any .tsv file, rebuild the indexed lookup files:
 ```bash
 bash scripts/build_example_databases.sh
