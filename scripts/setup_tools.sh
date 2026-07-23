@@ -4,7 +4,8 @@
 #
 # Installs every command-line tool required by the annotation pipeline:
 #   bcftools, tabix/htslib, samtools, jq, Ensembl VEP (+ GRCh38 cache),
-#   SnpEff/SnpSift, and SpliceAI (in its own conda environment).
+#   SnpEff/SnpSift, SpliceAI (in its own conda environment),
+#   AnnotSV, ClassifyCNV, and ISV (CNV classifier).
 #
 # Run this ONCE per machine. Safe to re-run (skips steps that are already done).
 ###############################################################################
@@ -65,7 +66,49 @@ if [[ ! -d "${TOOLS_DIR}/snpEff/data/GRCh38.86" ]]; then
   java -jar "$SNPEFF_JAR" download GRCh38.86
 fi
 
-log "Setting up SpliceAI in a dedicated conda environment..."
+###############################################################################
+# AnnotSV — structural variant / CNV annotation
+###############################################################################
+log "Installing AnnotSV..."
+ANNOTSV_VERSION="3.4.4"
+if [[ ! -d "${TOOLS_DIR}/AnnotSV" ]]; then
+  git clone --branch "v${ANNOTSV_VERSION}" --depth 1 https://github.com/lgmgeo/AnnotSV.git "${TOOLS_DIR}/AnnotSV"
+fi
+cd "${TOOLS_DIR}/AnnotSV"
+if [[ ! -x "${TOOLS_DIR}/AnnotSV/bin/AnnotSV" ]]; then
+  # AnnotSV installs itself under $ANNOTSV_DIR/share/AnnotSV and creates bin/AnnotSV
+  make PREFIX="${TOOLS_DIR}/AnnotSV" install
+  # Downloads Annotations_Human (gene/regulatory/pathogenic annotation sources)
+  make PREFIX="${TOOLS_DIR}/AnnotSV" install-human-annotation || \
+    log "Annotation download failed (likely firewall) — re-run 'make PREFIX=${TOOLS_DIR}/AnnotSV install-human-annotation' from ${TOOLS_DIR}/AnnotSV manually."
+fi
+if ! grep -q "AnnotSV/bin" "$HOME/.bashrc" 2>/dev/null; then
+  echo "export PATH=\"${TOOLS_DIR}/AnnotSV/bin:\$PATH\"" >> "$HOME/.bashrc"
+fi
+export PATH="${TOOLS_DIR}/AnnotSV/bin:$PATH"
+
+###############################################################################
+# ClassifyCNV — ACMG-based CNV classification
+###############################################################################
+log "Installing ClassifyCNV..."
+if [[ ! -d "${TOOLS_DIR}/ClassifyCNV" ]]; then
+  git clone --depth 1 https://github.com/Genotek/ClassifyCNV.git "${TOOLS_DIR}/ClassifyCNV"
+fi
+cd "${TOOLS_DIR}/ClassifyCNV"
+pip3 install --quiet -r requirements.txt || pip3 install --quiet --break-system-packages -r requirements.txt
+if [[ ! -d "${TOOLS_DIR}/ClassifyCNV/ClassifyCNV_data" ]]; then
+  bash Insert_annotation.sh
+fi
+if ! grep -q "ClassifyCNV\"" "$HOME/.bashrc" 2>/dev/null; then
+  echo "export PATH=\"${TOOLS_DIR}/ClassifyCNV:\$PATH\"" >> "$HOME/.bashrc"
+fi
+export PATH="${TOOLS_DIR}/ClassifyCNV:$PATH"
+log "Run ClassifyCNV with: python3 ${TOOLS_DIR}/ClassifyCNV/ClassifyCNV.py --infile <bed> --GenomeBuild hg38"
+
+###############################################################################
+# ISV — Interpretation of Structural Variants (ML-based CNV classifier)
+###############################################################################
+log "Setting up ISV in a dedicated conda environment..."
 if ! command -v conda >/dev/null 2>&1; then
   log "conda not found. Installing Miniconda..."
   wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
@@ -74,6 +117,24 @@ if ! command -v conda >/dev/null 2>&1; then
   "$HOME/miniconda3/bin/conda" init bash
 fi
 source "$(conda info --base)/etc/profile.d/conda.sh"
+
+if [[ ! -d "${TOOLS_DIR}/ISV" ]]; then
+  git clone --depth 1 https://github.com/TGurbich/ISV.git "${TOOLS_DIR}/ISV"
+fi
+if ! conda env list | grep -q "isv_env"; then
+  conda create -y -n isv_env python=3.8
+fi
+conda activate isv_env
+pip install --quiet -r "${TOOLS_DIR}/ISV/requirements.txt" 2>/dev/null || \
+  pip install --quiet autogluon pandas numpy pybedtools
+conda deactivate
+log "Run ISV from within its env: conda activate isv_env && python ${TOOLS_DIR}/ISV/ISV.py ..."
+log "NOTE: verify the exact ISV entry-point script/args against ${TOOLS_DIR}/ISV/README.md — usage varies by release."
+
+###############################################################################
+# SpliceAI
+###############################################################################
+log "Setting up SpliceAI in a dedicated conda environment..."
 if ! conda env list | grep -q "spliceai_env"; then
   conda create -y -n spliceai_env python=3.10
 fi
@@ -82,6 +143,8 @@ pip install --quiet spliceai
 conda deactivate
 
 log "All tools installed."
-log "IMPORTANT: run 'source ~/.bashrc' (or open a new terminal) so 'vep' is on your PATH."
+log "IMPORTANT: run 'source ~/.bashrc' (or open a new terminal) so 'vep', 'AnnotSV', and 'ClassifyCNV' are on your PATH."
 log "SNPEFF_JAR=${SNPEFF_JAR}"
 log "SNPSIFT_JAR=${SNPSIFT_JAR}"
+log "AnnotSV, ClassifyCNV -> ${TOOLS_DIR}/AnnotSV , ${TOOLS_DIR}/ClassifyCNV"
+log "ISV (conda env: isv_env) -> ${TOOLS_DIR}/ISV"
