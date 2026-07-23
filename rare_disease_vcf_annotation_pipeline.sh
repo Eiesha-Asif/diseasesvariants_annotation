@@ -42,8 +42,8 @@ need_file "$CONFIG"
 source "$CONFIG"
 
 case "$ASSEMBLY" in
-  GRCh38|grch38|hg38) ASSEMBLY="GRCh38"; ANNOVAR_BUILDVER="${ANNOVAR_BUILDVER:-hg38}"; CLASSIFY_BUILDVER="${CLASSIFY_BUILDVER:-hg38}"; SPLICEAI_ASSEMBLY="${SPLICEAI_ASSEMBLY:-grch38}" ;;
-  GRCh37|grch37|hg19) ASSEMBLY="GRCh37"; ANNOVAR_BUILDVER="${ANNOVAR_BUILDVER:-hg19}"; CLASSIFY_BUILDVER="${CLASSIFY_BUILDVER:-hg19}"; SPLICEAI_ASSEMBLY="${SPLICEAI_ASSEMBLY:-grch37}" ;;
+  GRCh38|grch38|hg38) ASSEMBLY="GRCh38"; ANNOVAR_BUILDVER="${ANNOVAR_BUILDVER:-hg38}"; CLASSIFY_BUILDVER="${CLASSIFY_BUILDVER:-hg38}"; SPLICEAI_ASSEMBLY="${SPLICEAI_ASSEMBLY:-grch38}"; ANNOTSV_BUILD="${ANNOTSV_BUILD:-GRCh38}" ;;
+  GRCh37|grch37|hg19) ASSEMBLY="GRCh37"; ANNOVAR_BUILDVER="${ANNOVAR_BUILDVER:-hg19}"; CLASSIFY_BUILDVER="${CLASSIFY_BUILDVER:-hg19}"; SPLICEAI_ASSEMBLY="${SPLICEAI_ASSEMBLY:-grch37}"; ANNOTSV_BUILD="${ANNOTSV_BUILD:-GRCh37}" ;;
   *) die "Unsupported assembly: $ASSEMBLY. Use GRCh38 or GRCh37." ;;
 esac
 
@@ -218,15 +218,89 @@ cp -f "$CURRENT_VCF" "$FINAL_SMALL_VCFGZ"
 tabix -f -p vcf "$FINAL_SMALL_VCFGZ"
 log "Final SNV/indel annotated VCF: $FINAL_SMALL_VCFGZ"
 
+###############################################################################
+# CNV / structural variant annotation and classification (AnnotSV, ClassifyCNV, ISV)
+# Only runs if a CNV file was supplied via -n
+###############################################################################
+ANNOTSV_TSV=""
+CLASSIFYCNV_RESULT=""
+ISV_RESULT=""
+CNV_BED_FOR_CLASSIFY=""
+
+if [[ -n "$CNV_INPUT" ]]; then
+  need_file "$CNV_INPUT"
+  log "CNV input detected: $CNV_INPUT"
+
+  if [[ "${RUN_ANNOTSV:-1}" == "1" ]]; then
+    need_cmd AnnotSV
+    log "Step 10: run AnnotSV on the CNV/SV input"
+    ANNOTSV_TSV="$OUTDIR/cnv/${SAMPLE}.annotsv.tsv"
+    ANNOTSV_ARGS=(-SVinputFile "$CNV_INPUT" -outputFile "$ANNOTSV_TSV" -genomeBuild "$ANNOTSV_BUILD" -SVinputInfo 1)
+    [[ -n "${ANNOTSV_INSTALL_DIR:-}" ]] && ANNOTSV_ARGS+=(-annotationsDir "${ANNOTSV_INSTALL_DIR}/share/AnnotSV/Annotations_Human")
+    AnnotSV "${ANNOTSV_ARGS[@]}"
+    need_file "$ANNOTSV_TSV"
+    log "AnnotSV output: $ANNOTSV_TSV"
+  else
+    log "Step 10: skipped AnnotSV because RUN_ANNOTSV=0"
+  fi
+
+  if [[ "${RUN_CLASSIFYCNV:-1}" == "1" ]]; then
+    [[ -n "${CLASSIFYCNV_DIR:?Set CLASSIFYCNV_DIR in config}" ]]
+    need_file "${CLASSIFYCNV_DIR}/ClassifyCNV.py"
+    log "Step 11: run ClassifyCNV (ACMG dosage-based CNV classification)"
+    case "$CNV_INPUT" in
+      *.bed|*.bed.gz)
+        CNV_BED_FOR_CLASSIFY="$CNV_INPUT" ;;
+      *.vcf.gz|*.vcf|*.bcf)
+        CNV_BED_FOR_CLASSIFY="$OUTDIR/work/${SAMPLE}.cnv_for_classifycnv.bed"
+        bcftools query -f '%CHROM\t%POS0\t%INFO/END\t%INFO/SVTYPE\n' "$CNV_INPUT" > "$CNV_BED_FOR_CLASSIFY"
+        need_file "$CNV_BED_FOR_CLASSIFY" ;;
+      *) die "CNV input (-n) must be .bed, .bed.gz, .vcf, .vcf.gz, or .bcf" ;;
+    esac
+    CLASSIFYCNV_OUTDIR="$OUTDIR/cnv/${SAMPLE}.classifycnv"
+    python3 "${CLASSIFYCNV_DIR}/ClassifyCNV.py" --infile "$CNV_BED_FOR_CLASSIFY" --GenomeBuild "$CLASSIFY_BUILDVER" --outdir "$CLASSIFYCNV_OUTDIR"
+    CLASSIFYCNV_RESULT="${CLASSIFYCNV_OUTDIR}/Scoresheet.txt"
+    need_file "$CLASSIFYCNV_RESULT"
+    log "ClassifyCNV output: $CLASSIFYCNV_RESULT"
+  else
+    log "Step 11: skipped ClassifyCNV because RUN_CLASSIFYCNV=0"
+  fi
+
+  if [[ "${RUN_ISV:-1}" == "1" ]]; then
+    [[ -n "${ISV_DIR:?Set ISV_DIR in config}" ]]
+    [[ -n "${ISV_CONDA_ENV:-isv_env}" ]]
+    need_file "$ANNOTSV_TSV"
+    log "Step 12: run ISV (ML-based ACMG classification) on the AnnotSV output"
+    ISV_RESULT="$OUTDIR/acmg/${SAMPLE}.isv.tsv"
+    if command -v conda >/dev/null 2>&1; then
+      source "$(conda info --base)/etc/profile.d/conda.sh"
+      conda activate "${ISV_CONDA_ENV:-isv_env}"
+      python3 "${ISV_DIR}/ISV.py" -i "$ANNOTSV_TSV" -o "$ISV_RESULT" || \
+        log "ISV run failed or its CLI differs from expected -i/-o flags — check ${ISV_DIR}/README.md for the exact invocation for this release."
+      conda deactivate
+    else
+      die "conda not found in PATH; ISV requires its dedicated conda env (${ISV_CONDA_ENV:-isv_env})"
+    fi
+    if [[ -s "$ISV_RESULT" ]]; then
+      log "ISV output: $ISV_RESULT"
+    else
+      log "ISV output not found at expected path: $ISV_RESULT (see warning above)"
+    fi
+  else
+    log "Step 12: skipped ISV because RUN_ISV=0"
+  fi
+else
+  log "No CNV input (-n) provided — skipping AnnotSV/ClassifyCNV/ISV steps"
+fi
+
 REPORT="$OUTDIR/reports/${SAMPLE}.annotation_outputs.txt"
 {
   echo "Sample: $SAMPLE"
   echo "Assembly: $ASSEMBLY"
   echo "Final annotated SNV/indel VCF: $FINAL_SMALL_VCFGZ"
+  [[ -n "$ANNOTSV_TSV" ]] && echo "AnnotSV CNV annotation: $ANNOTSV_TSV"
+  [[ -n "$CLASSIFYCNV_RESULT" ]] && echo "ClassifyCNV scoresheet: $CLASSIFYCNV_RESULT"
+  [[ -n "$ISV_RESULT" ]] && echo "ISV classification: $ISV_RESULT"
   echo "Pipeline log: $LOGFILE"
 } > "$REPORT"
 log "Finished. Output summary: $REPORT"
-SCRIPT_END
-
-chmod +x rare_disease_vcf_annotation_pipeline.sh
-echo "Script created."
