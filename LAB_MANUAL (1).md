@@ -326,8 +326,21 @@ bash rare_disease_vcf_annotation_pipeline.sh \
 
 ## PART I — (Optional) CNV / Structural Variant Analysis
 
-If your disease is CNV (copy number variant) related, supply a CNV file (`.bed`,
-`.bed.gz`, `.vcf`, `.vcf.gz`, or `.bcf`) via the `-n` flag:
+If your disease of interest involves CNVs (copy number variants) — deletions,
+duplications, or other structural rearrangements — rather than simple SNVs/indels,
+the pipeline can also annotate and classify those using 3 additional tools.
+
+### I.1 — What Each Tool Does
+
+| Tool | Purpose | Input It Uses | Output |
+|---|---|---|---|
+| **AnnotSV** | Annotates each CNV/SV with overlapping genes, regulatory elements, known pathogenic SV records (from public SV databases), and ClinGen dosage-sensitive regions | Your CNV file (`-n` flag) | `<sample>.annotsv.tsv` |
+| **ClassifyCNV** | Applies the official ACMG/ClinGen dosage-sensitivity scoring rules to classify each CNV from Benign to Pathogenic | A BED file derived from your CNV input | `Scoresheet.txt` |
+| **ISV** (Interpretation of Structural Variants) | A machine-learning model (built on AutoGluon) that predicts an ACMG classification for each CNV using AnnotSV's annotated output as its input features | AnnotSV's `.tsv` output | `<sample>.isv.tsv` |
+
+### I.2 — Supplying a CNV File
+Add the `-n` flag when running the pipeline. Accepted formats: `.bed`, `.bed.gz`,
+`.vcf`, `.vcf.gz`, or `.bcf`.
 
 ```bash
 bash rare_disease_vcf_annotation_pipeline.sh \
@@ -340,14 +353,43 @@ bash rare_disease_vcf_annotation_pipeline.sh \
   -t 4
 ```
 
-This runs 3 extra steps: **AnnotSV** (Step 10), **ClassifyCNV** (Step 11), and **ISV**
-(Step 12). Output files:
-```
-results/<sample>/cnv/<sample>.annotsv.tsv
-results/<sample>/cnv/<sample>.classifycnv/Scoresheet.txt
-results/<sample>/acmg/<sample>.isv.tsv
+### I.3 — What Happens Internally (Step by Step)
+
+| Log Line You'll See | What's Happening |
+|---|---|
+| `Step 10: run AnnotSV on the CNV/SV input` | AnnotSV annotates gene/region overlap for each CNV |
+| `Step 11: run ClassifyCNV (ACMG dosage-based CNV classification)` | ClassifyCNV scores each CNV using ACMG dosage rules |
+| `Step 12: run ISV (ML-based ACMG classification) on the AnnotSV output` | ISV predicts a classification using its trained ML model |
+
+### I.4 — Verifying the Outputs
+```bash
+ls -lh results/<sample>/cnv/
+cat results/<sample>/cnv/<sample>.annotsv.tsv | head -5
+cat results/<sample>/cnv/<sample>.classifycnv/Scoresheet.txt | head -5
+ls -lh results/<sample>/acmg/
+cat results/<sample>/acmg/<sample>.isv.tsv | head -5
 ```
 
+### I.5 — Config Requirements for This Layer
+In `config/annotation_resources.env`, make sure these are set correctly:
+
+| Variable | Meaning |
+|---|---|
+| `ANNOTSV_INSTALL_DIR` | Path to your AnnotSV installation (from Part C) |
+| `CLASSIFYCNV_DIR` | Path to your ClassifyCNV installation |
+| `ISV_DIR` | Path to your ISV installation |
+| `ISV_CONDA_ENV` | Name of ISV's dedicated conda environment (default `isv_env`) |
+| `RUN_ANNOTSV`, `RUN_CLASSIFYCNV`, `RUN_ISV` | `1` to run each step, `0` to skip it |
+
+### I.6 — Troubleshooting This Layer
+
+| Issue | Solution |
+|---|---|
+| `AnnotSV: command not found` | Confirm PATH includes `tools/AnnotSV/bin` (Part C.2) |
+| AnnotSV annotation folder missing | Re-run `make PREFIX=<path> install-human-annotation` from `tools/AnnotSV` (Part C, "AnnotSV" section) |
+| ClassifyCNV `ClassifyCNV_data` missing | Re-run `bash Insert_annotation.sh` inside `tools/ClassifyCNV` |
+| ISV step fails or produces no output | ISV's exact CLI arguments vary by release — check `tools/ISV/README.md` for the correct invocation, then re-run manually |
+| `conda not found` during ISV step | Run `source ~/miniconda3/etc/profile.d/conda.sh` before activating `isv_env` |
 ---
 
 ## PART J — Complete Command Cheat Sheet
