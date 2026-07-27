@@ -313,8 +313,47 @@ results/<sample>/reports/<sample>.annotation_outputs.txt
 ```
 
 ---
+## 10. Optional: CNV / Structural Variant Layer (AnnotSV, ClassifyCNV, ISV)
 
-## 10. Troubleshooting
+Besides the 9 SNV/indel annotation steps above, the pipeline includes 3 additional,
+**optional** steps for Copy Number Variant (CNV) / structural variant annotation. These
+only run when a CNV file is supplied via the `-n` flag — they are skipped automatically
+for a plain SNV/indel run.
+
+| # | Step | Tool | What It Does |
+|---|------|------|----------------|
+| 10 | Structural Variant Annotation | **AnnotSV** | Annotates CNVs/SVs with gene overlap, regulatory elements, known pathogenic SV records, and ClinGen dosage-sensitive regions |
+| 11 | CNV ACMG Classification | **ClassifyCNV** | Applies the ACMG/ClinGen dosage-sensitivity scoring framework to classify each CNV (Benign → Pathogenic) |
+| 12 | ML-Based CNV Classification | **ISV** (Interpretation of Structural Variants) | A machine-learning classifier (AutoGluon-based) that predicts an ACMG classification for each CNV, using AnnotSV's output as its input features |
+
+**How to enable this layer:**
+```bash
+bash rare_disease_vcf_annotation_pipeline.sh \
+  -i <your_snv_variants.vcf> \
+  -n <your_cnv_file.vcf.gz>   \
+  -o results/<sample> \
+  -c config/annotation_resources.env \
+  -s <sample> \
+  -a GRCh38 \
+  -t 4
+```
+`-n` accepts `.bed`, `.bed.gz`, `.vcf`, `.vcf.gz`, or `.bcf`.
+
+**Outputs produced:**
+
+| File | From Tool |
+|---|---|
+| `results/<sample>/cnv/<sample>.annotsv.tsv` | AnnotSV — full structural variant annotation table |
+| `results/<sample>/cnv/<sample>.classifycnv/Scoresheet.txt` | ClassifyCNV — ACMG dosage classification scoresheet |
+| `results/<sample>/acmg/<sample>.isv.tsv` | ISV — ML-predicted ACMG classification |
+
+**Config variables** (already listed in Section 8) that control this layer:
+`CLASSIFYCNV_DIR`, `ISV_DIR`, `ISV_CONDA_ENV`, `ANNOTSV_INSTALL_DIR`, and the
+`RUN_ANNOTSV` / `RUN_CLASSIFYCNV` / `RUN_ISV` flags (`1` = run, `0` = skip).
+
+> **Note:** These 3 tools are already installed by `scripts/setup_tools.sh` in Section 5 —
+> no separate installation is required. This section only documents how to *use* them.
+## 11. Troubleshooting
 
 | Issue | Solution |
 |---|---|
@@ -327,7 +366,7 @@ results/<sample>/reports/<sample>.annotation_outputs.txt
 
 ---
 
-## 11. Limitations
+## 12. Limitations
 
 - This pipeline is intended for **research/educational use** — it is **not** a clinical
   diagnostic tool.
@@ -340,7 +379,7 @@ results/<sample>/reports/<sample>.annotation_outputs.txt
 
 ---
 
-## 12. Related Files
+## 13. Related Files
 
 - **`LAB_MANUAL.md`** — the complete hands-on lab manual: every command, every
   installation step, every input/output, explained in full detail.
